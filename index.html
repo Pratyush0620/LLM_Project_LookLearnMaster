@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SnapLearn Control Panel</title>
+    <style>
+        :root { --primary: #2563eb; --success: #059669; --bg: #f1f5f9; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #1e293b; }
+        .container { max-width: 950px; margin: 0 auto; }
+
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; border: 1px solid #e2e8f0; }
+        h1 { color: #1e3a8a; text-align: center; margin-bottom: 30px; }
+        h2 { border-bottom: 2px solid var(--primary); padding-bottom: 10px; color: #334155; font-size: 1.25rem; margin-top: 0; }
+
+        input[type="file"], input[type="text"] { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
+        button { background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: 600; font-size: 1rem; transition: background 0.2s; }
+        button:hover { background: #1d4ed8; }
+        button.secondary { background: #475569; }
+        button.success { background: var(--success); }
+        button.action-btn { width: auto; padding: 6px 12px; font-size: 0.85rem; margin-top: 5px; }
+        button.toggle-btn { background: transparent; color: #64748b; border: 1px solid #cbd5e1; padding: 5px 10px; font-size: 0.8rem; width: auto; margin-top: 10px; }
+
+        .status { text-align: center; margin-top: 10px; font-weight: 500; }
+        .status.success { color: var(--success); }
+        .status.error { color: #dc2626; }
+
+        .db-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9rem; }
+        .db-table th { background: #e2e8f0; padding: 10px; text-align: left; border: 1px solid #cbd5e1; }
+        .db-table td { border: 1px solid #cbd5e1; padding: 8px; vertical-align: top; }
+        .db-table tr:nth-child(even) { background: #f8fafc; }
+        .code-snippet { font-family: monospace; color: #d63384; background: #fff1f2; padding: 2px 5px; border-radius: 4px; }
+
+        .result-item { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 15px; margin-top: 15px; transition: all 0.3s ease; }
+        .meta-tag { display: inline-block; background: #dbeafe; color: #1e40af; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; margin-right: 10px; }
+        .score-tag { display: inline-block; background: #e2e8f0; color: #475569; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; }
+
+        .recommended-item { border: 2px solid #059669; background: #ecfdf5; box-shadow: 0 0 10px rgba(5, 150, 105, 0.1); }
+        .rec-badge { background: #059669; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; float: right; }
+
+        .mcq-card { background: white; border: 1px solid #e2e8f0; padding: 15px; margin-bottom: 10px; border-radius: 8px; }
+        .correct-answer { color: var(--success); font-weight: bold; margin-top: 8px; font-size: 0.9rem; }
+        .loader { display: none; text-align: center; margin: 20px; color: var(--primary); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🚀 SnapLearn Control Panel</h1>
+
+    <div class="card">
+        <h2>1. Upload PDF (Ingest)</h2>
+        <input type="file" id="pdfInput" accept=".pdf">
+        <button onclick="uploadPDF()">Upload & Index</button>
+        <p id="uploadStatus" class="status"></p>
+
+        <div style="text-align: right;">
+            <button class="toggle-btn" onclick="toggleInspector()">👁️ Show/Hide Database Inspector</button>
+        </div>
+
+        <div id="dbInspector" style="display:none; margin-top: 20px;">
+            <h3>📂 Database Contents (Raw Chunks)</h3>
+            <div style="max-height: 300px; overflow-y: auto; border: 1px solid #cbd5e1;">
+                <table class="db-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 30%">Chunk ID</th>
+                            <th>Content Preview</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="chunkTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>2. Accuracy Check (Semantic Search)</h2>
+        <input type="text" id="searchQuery" placeholder="Enter topic (e.g., Air Pollution Policies)">
+        <button onclick="checkAccuracy()" class="secondary">🔍 Search Database</button>
+        <div id="resultsContainer"></div>
+    </div>
+
+    <div class="card">
+        <h2>3. AI Tutor (Deep Revision)</h2>
+        <input type="text" id="chunkIdInput" placeholder="Paste Chunk ID here (e.g., file.pdf_0)">
+        <button onclick="getRevision()">🧠 Analyze & Generate Quiz</button>
+
+        <div id="loader" class="loader">Thinking... (This may take 10-20s)</div>
+
+        <div id="tutorResult" style="display: none; margin-top: 20px;">
+            <div style="background: #eff6ff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #bfdbfe;">
+                <h3 style="margin-top:0; color: #1e40af;">📝 Summary</h3>
+                <div id="summaryDisplay" style="line-height: 1.6;"></div>
+            </div>
+            <h3 style="color: #1e40af;">⚗️ Formulas Found</h3>
+            <ul id="formulaDisplay" style="background: #fff1f2; padding: 15px; border-radius: 8px;"></ul>
+            <h3 style="color: #1e40af;">✅ Self Assessment</h3>
+            <div id="mcqDisplay"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>4. Download Guide (PDF Generator)</h2>
+        <input type="text" id="docIdInput" placeholder="Enter Filename (e.g., notes.pdf)">
+        <button onclick="downloadPDF()" class="success">⬇️ Download Notes + Formula Book + MCQs</button>
+    </div>
+</div>
+
+<script>
+    const API_URL = "http://127.0.0.1:8000/snaplearn";
+
+    async function uploadPDF() {
+        const fileInput = document.getElementById('pdfInput');
+        const status = document.getElementById('uploadStatus');
+
+        if (!fileInput.files[0]) return alert("Please select a file!");
+
+        const formData = new FormData();
+        formData.append("file", fileInput.files[0]);
+
+        status.innerText = "Uploading & Indexing...";
+        status.className = "status";
+
+        try {
+            const res = await fetch(`${API_URL}/upload`, { method: 'POST', body: formData });
+            const data = await res.json();
+
+            status.innerText = `✅ Success! File ID: ${data.document} | Total Chunks: ${data.total_chunks}`;
+            status.className = "status success";
+            document.getElementById('docIdInput').value = data.document;
+
+            const tbody = document.getElementById('chunkTableBody');
+            tbody.innerHTML = "";
+            data.chunks.forEach(chunk => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="code-snippet">${chunk.id}</td>
+                    <td>${chunk.text}</td>
+                    <td><button class="action-btn" onclick="copyId('${chunk.id}')">Copy ID</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (e) {
+            status.innerText = "Error: " + e;
+            status.className = "status error";
+        }
+    }
+
+    function toggleInspector() {
+        const div = document.getElementById('dbInspector');
+        div.style.display = div.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function copyId(id) {
+        document.getElementById('chunkIdInput').value = id;
+        window.scrollTo({ top: document.getElementById('chunkIdInput').offsetTop - 100, behavior: 'smooth' });
+    }
+
+    async function checkAccuracy() {
+        const query = document.getElementById('searchQuery').value;
+        const container = document.getElementById('resultsContainer');
+
+        if (!query) return alert("Enter a search topic!");
+        container.innerHTML = "<p style='text-align:center; color:#666;'>Searching Vector DB...</p>";
+
+        try {
+            const res = await fetch(`${API_URL}/accuracy-check?query=${encodeURIComponent(query)}`);
+            const data = await res.json();
+
+            container.innerHTML = "";
+
+            data.ids.forEach((id, index) => {
+                const distance = data.distance[index];
+                const text = data.text_found[index];
+
+                let isWinner = (index === 0);
+                let badgeHtml = isWinner ? '<span class="rec-badge">⭐ Recommended Chunk</span>' : '';
+                let extraClass = isWinner ? 'recommended-item' : '';
+
+                const div = document.createElement('div');
+                div.className = `result-item ${extraClass}`;
+                div.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <span class="meta-tag">ID: ${id}</span>
+                            <span class="score-tag">Match Distance: ${distance.toFixed(4)}</span>
+                        </div>
+                        ${badgeHtml}
+                    </div>
+                    <div style="margin: 10px 0; color: #444; font-style: italic;">
+                        "...${text.substring(0, 300)}..."
+                    </div>
+                    <button class="action-btn success" onclick="copyId('${id}')">🎓 Revise This Chunk</button>
+                `;
+                container.appendChild(div);
+            });
+
+        } catch (e) {
+            container.innerHTML = `<p class="status error">Search failed: ${e}</p>`;
+        }
+    }
+
+    async function getRevision() {
+        const chunkId = document.getElementById('chunkIdInput').value;
+        if (!chunkId) return alert("Enter a Chunk ID!");
+
+        document.getElementById('loader').style.display = 'block';
+        document.getElementById('tutorResult').style.display = 'none';
+
+        try {
+            const res = await fetch(`${API_URL}/revise/${chunkId}`);
+            const data = await res.json();
+
+            let analysis = data.analysis;
+
+            if (!analysis) {
+                throw new Error("AI returned empty response. Check backend logs.");
+            }
+
+            if (typeof analysis === 'string') {
+                try {
+                    analysis = JSON.parse(analysis);
+                } catch (e) {
+                    throw new Error("Failed to parse AI JSON: " + analysis);
+                }
+            }
+
+            if (analysis.error) {
+                throw new Error("Ollama Error: " + analysis.error);
+            }
+
+
+            const summaryDiv = document.getElementById('summaryDisplay');
+summaryDiv.innerHTML = "";
+
+if (analysis.key_concepts && analysis.key_concepts.length > 0) {
+    analysis.key_concepts.forEach(kc => {
+        const block = document.createElement("div");
+        block.style.marginBottom = "12px";
+        block.innerHTML = `
+            <strong>${kc.concept}</strong><br>
+            <span>${kc.explanation}</span>
+        `;
+        summaryDiv.appendChild(block);
+    });
+} else {
+    summaryDiv.innerText = "No key concepts available.";
+}
+
+
+            const formulaList = document.getElementById('formulaDisplay');
+            formulaList.innerHTML = "";
+            (analysis.formulas || []).forEach(f => {
+                const li = document.createElement('li');
+                li.innerText = f;
+                formulaList.appendChild(li);
+            });
+
+            const mcqContainer = document.getElementById('mcqDisplay');
+            mcqContainer.innerHTML = "";
+            (analysis.mcqs || []).forEach((mcq, index) => {
+                const div = document.createElement('div');
+                div.className = 'mcq-card';
+                div.innerHTML = `
+                    <strong>Q${index+1}: ${mcq.question}</strong>
+                    <ul style="margin: 5px 0 10px 20px; padding: 0;">
+                        ${mcq.options.map(opt => `<li>${opt}</li>`).join('')}
+                    </ul>
+<!--                    <div class="correct-answer">✅ Answer: Option ${mcq.correctAnswer}</div>-->
+                `;
+                mcqContainer.appendChild(div);
+            });
+
+            document.getElementById('tutorResult').style.display = 'block';
+        } catch (e) {
+            alert(e.message); // This will now show the actual error (e.g., "Model not found")
+        } finally {
+            document.getElementById('loader').style.display = 'none';
+        }
+    }
+
+    function downloadPDF() {
+        const docId = document.getElementById('docIdInput').value;
+        if (!docId) return alert("Enter Filename!");
+        window.open(`${API_URL}/generate-quick-pdf/${docId}`, '_blank');
+    }
+</script>
+
+</body>
+</html>
